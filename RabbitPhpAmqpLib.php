@@ -9,7 +9,7 @@ use PhpAmqpLib\Wire\AMQPTable;
  * Class Rabbit
  * @package sansusan\rabbitmq
  */
-class Rabbit
+class RabbitPhpAmqpLib
 {
     /**
      * @var string Server IP

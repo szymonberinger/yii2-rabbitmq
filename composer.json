@@ -3,7 +3,9 @@
   "description": "Yii2 rabbitmq",
   "keywords": [
     "yii2",
-    "rabbitmq"
+    "rabbitmq",
+    "phpamqlib",
+    "phpamqp"
   ],
   "type": "yii2-extension",
   "license": "BSD-3-Clause",

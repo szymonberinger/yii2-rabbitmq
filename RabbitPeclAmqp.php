@@ -90,8 +90,11 @@ class RabbitPeclAmqp
     public $caFilePath = '';
 
 
+    /** @var AMQPConnection */
     private $connection = null;
+    /** @var AMQPQueue */
     private $queue = null;
+    /** @var AMQPExchange */
     private $exchange = null;
 
 
@@ -138,11 +141,14 @@ class RabbitPeclAmqp
 
     /**
      * Get queue
-     * @return AMQPQueue
+     * @return boolean|AMQPQueue
      */
     private function initQueue()
     {
         $connection = $this->initConnection();
+        if (!$this->connect())
+            return false;
+
         if (empty($this->queue)) {
             $channel = new AMQPChannel($connection);
             $channel->setPrefetchCount((int)$this->prefetchCount);
@@ -179,8 +185,6 @@ class RabbitPeclAmqp
     public function receive()
     {
         $q = $this->initQueue();
-        if (!$this->connect())
-            return false;
         return $q->get($this->autoACK ? AMQP_AUTOACK : AMQP_NOPARAM);
     }
 
@@ -193,8 +197,11 @@ class RabbitPeclAmqp
      */
     public function sendACK(AMQPEnvelope $message)
     {
-        $q = $this->initQueue();
-        return $q->ack($message->getDeliveryTag());
+        $q = $this->queue;
+        if (!empty($q))
+            return $q->ack($message->getDeliveryTag());
+        else
+            return false;
     }
 
 

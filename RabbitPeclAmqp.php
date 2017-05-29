@@ -1,4 +1,5 @@
 <?php
+
 namespace sansusan\rabbitmq;
 
 use AMQPChannel;
@@ -89,28 +90,49 @@ class RabbitPeclAmqp
     public $caFilePath = '';
 
 
+    private $connection = null;
+    private $queue = null;
+    private $exchange = null;
+
+
     /**
      * Init connection
      * @return AMQPConnection
      */
     private function initConnection()
     {
-        ini_set('amqp.cacert', $this->caFilePath);
-        ini_set('amqp.cert', $this->caFilePath);
-        ini_set('amqp.heartbeat', $this->heartbeat);
-//        ini_set('amqp.key', '');
-        ini_set('amqp.verify', 'false');
+        if (empty($this->connection)) {
 
-        $connection = new AMQPConnection();
-        $connection->setHost($this->host);
-        $connection->setPort($this->amqpPort);
-        $connection->setLogin($this->login);
-        $connection->setPassword($this->pass);
-        $connection->setVhost($this->vhost);
-        $connection->setReadTimeout($this->read_write_timeout);
-        $connection->setWriteTimeout($this->read_write_timeout);
-        $connection->connect();
-        return $connection;
+            ini_set('amqp.cacert', $this->caFilePath);
+            ini_set('amqp.cert', $this->caFilePath);
+            ini_set('amqp.heartbeat', $this->heartbeat);
+//        ini_set('amqp.key', '');
+            ini_set('amqp.verify', 'false');
+
+            $connection = new AMQPConnection();
+            $connection->setHost($this->host);
+            $connection->setPort($this->amqpPort);
+            $connection->setLogin($this->login);
+            $connection->setPassword($this->pass);
+            $connection->setVhost($this->vhost);
+            $connection->setReadTimeout($this->read_write_timeout);
+            $connection->setWriteTimeout($this->read_write_timeout);
+            $this->connection = $connection;
+        }
+        return $this->connection;
+    }
+
+
+    /**
+     * @return bool
+     */
+    private function connect()
+    {
+        $connection = $this->initConnection();
+        if (!$connection->isConnected())
+            return $connection->connect();
+        else
+            return true;
     }
 
 
@@ -121,23 +143,44 @@ class RabbitPeclAmqp
     private function initQueue()
     {
         $connection = $this->initConnection();
-        $channel = new AMQPChannel($connection);
-        $channel->setPrefetchCount((int)$this->prefetchCount);
-        $q = new AMQPQueue($channel);
-        $q->setFlags(AMQP_DURABLE);
-        $q->setName($this->receiveQueueName);
-        $q->declareQueue();
-        return $q;
+        if (empty($this->queue)) {
+            $channel = new AMQPChannel($connection);
+            $channel->setPrefetchCount((int)$this->prefetchCount);
+            $q = new AMQPQueue($channel);
+            $q->setFlags(AMQP_DURABLE);
+            $q->setName($this->receiveQueueName);
+            $q->declareQueue();
+            $this->queue = $q;
+        }
+        return $this->queue;
+    }
+
+
+    private function initExchange()
+    {
+        $connection = $this->initConnection();
+        if (empty($this->exchange)) {
+            $channel = new AMQPChannel($connection);
+            $ex = new AMQPExchange($channel);
+            $ex->setName($this->sendQueueName);
+            $ex->setFlags(AMQP_DURABLE);
+            $ex->setType(AMQP_EX_TYPE_FANOUT);
+            $ex->declareExchange();
+            $this->exchange = $ex;
+        }
+        return $this->exchange;
     }
 
 
     /**
-     * Receive message
+     * Receive next message
      * @return AMQPEnvelope|boolean
      */
     public function receive()
     {
         $q = $this->initQueue();
+        if (!$this->connect())
+            return false;
         return $q->get($this->autoACK ? AMQP_AUTOACK : AMQP_NOPARAM);
     }
 
@@ -164,15 +207,7 @@ class RabbitPeclAmqp
      */
     public function send($message, $headers = [])
     {
-        $connection = $this->initConnection();
-        $channel = new AMQPChannel($connection);
-
-        $ex = new AMQPExchange($channel);
-        $ex->setName($this->sendQueueName);
-        $ex->setFlags(AMQP_DURABLE);
-        $ex->setType(AMQP_EX_TYPE_FANOUT);
-        $ex->declareExchange();
-
+        $ex = $this->initExchange();
         return $ex->publish($message, $this->sendQueueName, AMQP_NOPARAM, [
             'delivery_mode' => 2,
             'headers' => $headers

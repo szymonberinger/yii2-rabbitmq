@@ -123,7 +123,7 @@ class RabbitPhpAmqpLib
         $connection = $this->initConnection();
         $channel = $connection->channel();
 
-
+        $stored_exc = null;
         try {
             $channel->queue_declare(
                 $this->receiveQueueName,    #queue
@@ -158,12 +158,17 @@ class RabbitPhpAmqpLib
                 echo "Waiting for incoming messages", "\n";
                 $channel->wait(null, false, (int)$this->receiveWaitTimeout);
             }
-        } finally {
-            $channel->close();
-            $connection->close();
+        } catch (Exception $exc) {
+            $stored_exc = $exc;
+        }
+        
+        $channel->close();
+        $connection->close();
+        
+        if ($stored_exc) {
+            throw($stored_exc);
         }
     }
-
 
     /**
      * Send ACK message
@@ -193,6 +198,8 @@ class RabbitPhpAmqpLib
     {
         $connection = $this->initConnection();
         $channel = $connection->channel();
+        
+        $stored_exc = null;
         try {
             $channel->queue_declare(
                 $this->sendQueueName, #queue - Queue names may be up to 255 bytes of UTF-8 characters
@@ -217,10 +224,15 @@ class RabbitPhpAmqpLib
                 $this->sendQueueName,  #exchange
                 $this->sendQueueName  #routing key (queue)
             );
+        } catch (Exception $exc) {
+            $stored_exc = $exc;
+        }
 
-        } finally {
-            $channel->close();
-            $connection->close();
+        $channel->close();
+        $connection->close();
+        
+        if ($stored_exc) {
+            throw($stored_exc);
         }
     }
 }

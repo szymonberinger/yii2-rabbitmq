@@ -1,6 +1,7 @@
 <?php
 namespace sansusan\rabbitmq;
 
+use Exception;
 use PhpAmqpLib\Connection\AMQPSSLConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Wire\AMQPTable;
